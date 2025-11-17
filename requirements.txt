@@ -1,0 +1,12 @@
+streamlit
+langchain
+langchain-openai
+langchain-community
+langchain-core
+scikit-learn
+pandas
+numpy
+chromadb
+tqdm
+faiss-cpu  
+python-dotenv
