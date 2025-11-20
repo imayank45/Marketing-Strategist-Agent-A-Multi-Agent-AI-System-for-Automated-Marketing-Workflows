@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 import os
 from models.predictor import PredictorAgent
 from agents.orchestrator_agent import Orchestrator
+from agents.strategy_agent import StrategyAgent
 load_dotenv()
 
 
@@ -49,11 +50,16 @@ if st.button("Run pipeline"):
         st.error(f"Model not found at {PICKLE_PATH}. Run the dummy model creation script.")
     else:
         predictor = PredictorAgent(PICKLE_PATH, FEATURE_ORDER)
+        strategy_agent = StrategyAgent()
         
-        orchestrator = Orchestrator(predictor)
+        orchestrator = Orchestrator(predictor, strategy_agent)
+        
         
         with st.spinner("Running all agents..."):
             result = orchestrator.run_pipeline(raw)
 
         st.subheader("Prediction (Agent 1)")
         st.json(result["prediction"])
+        
+        st.subheader("Initial Strategy (Agent 2)")
+        st.write(result)
