@@ -4,6 +4,8 @@ import os
 from models.predictor import PredictorAgent
 from agents.orchestrator_agent import Orchestrator
 from agents.strategy_agent import StrategyAgent
+from agents.retriever_agent import RetrieverAgent
+from agents.optimizer_agent import OptimizerAgent
 load_dotenv()
 
 
@@ -51,8 +53,10 @@ if st.button("Run pipeline"):
     else:
         predictor = PredictorAgent(PICKLE_PATH, FEATURE_ORDER)
         strategy_agent = StrategyAgent()
+        review = RetrieverAgent()
+        optimized_strategy = OptimizerAgent()
         
-        orchestrator = Orchestrator(predictor, strategy_agent)
+        orchestrator = Orchestrator(predictor, strategy_agent, review, optimized_strategy)
         
         
         with st.spinner("Running all agents..."):
@@ -63,3 +67,9 @@ if st.button("Run pipeline"):
         
         st.subheader("Initial Strategy (Agent 2)")
         st.write(result)
+        
+        st.subheader("Review (Agent 3)")
+        st.code(result["review"])
+
+        st.subheader("Optimized Strategy (Agent 4)")
+        st.code(result["optimized_strategy"])
