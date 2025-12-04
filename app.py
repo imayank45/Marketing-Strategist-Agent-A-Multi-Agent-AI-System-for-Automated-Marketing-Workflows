@@ -1,75 +1,67 @@
+# app.py
 import streamlit as st
-from dotenv import load_dotenv
 import os
-from models.predictor import PredictorAgent
-from agents.orchestrator_agent import Orchestrator
+import json
+from dotenv import load_dotenv
+from agents.prediction_agent import PredictionAgent
 from agents.strategy_agent import StrategyAgent
-from agents.retriever_agent import RetrieverAgent
+from agents.evaluator_agent import EvaluatorAgent
 from agents.optimizer_agent import OptimizerAgent
+from agents.orchestrator_agent import Orchestrator
+from config.settings import MODEL_PATH, OPENAI_API_KEY
+
 load_dotenv()
 
+FEATURE_ORDER = ['default','dummy_telephone','emp.var.rate','duration','loan','dummy_success','nr.employed','euribor3m','cons.price.idx','housing','marital_ordinal']
 
-FEATURE_ORDER = [
-    'default','dummy_telephone','emp.var.rate','duration',
-    'loan','dummy_success','nr.employed','euribor3m',
-    'cons.price.idx','housing','marital_ordinal'
-]
+st.set_page_config(page_title='Marketing Strategist Agent', layout='wide')
+st.title('Marketing Strategist Agent — Bank Domain')
 
-PICKLE_PATH = "models/lr_model_selected.pkl"
+st.sidebar.header('Settings')
+st.sidebar.write(f'OPENAI_API_KEY set: {bool(OPENAI_API_KEY)}')
 
-st.set_page_config(page_title="Marketing Strategist Agent", layout="wide")
-st.title("Marketing Strategist Agent — Banking Domain (User Input Version)")
-
-st.markdown("Provide all feature values below and run the full multi-agent pipeline.")
-
-# Sidebar: settings
-st.sidebar.header("Settings")
-api_key = os.getenv("OPENAI_API_KEY")
-st.sidebar.text(f"OpenAI key set: {'Yes' if api_key else 'No'}")
-
-
-# ----------------------------
-#  USER INPUT (NO DEFAULTS)
-# ----------------------------
-st.markdown("### Enter Feature Values")
-
+st.markdown('### Enter feature values')
 raw = {}
 cols = st.columns(3)
 i = 0
-
-for feature in FEATURE_ORDER:
+for feat in FEATURE_ORDER:
     with cols[i % 3]:
-        # ask number input without defaults
-        raw[feature] = [st.number_input(feature, value=0.0)]
+        raw[feat] = [st.number_input(feat, value=0.0, format='%f')]
     i += 1
-    
-    
-# ----------------------------
-#  RUN PIPELINE
-# ----------------------------
-if st.button("Run pipeline"):
-    if not os.path.exists(PICKLE_PATH):
-        st.error(f"Model not found at {PICKLE_PATH}. Run the dummy model creation script.")
+
+docs_context = ""
+if st.checkbox("Load RAG docs (if available)"):
+    st.write("Ensure PDFs exist in rag/brand_docs and you ran rag/ingest_pdf.py")
+    docs_context = st.text_area("Optional context summary (manual)")
+
+if st.button('Run pipeline'):
+    if not os.path.exists(MODEL_PATH):
+        st.error('Model pickle not found. Run scripts/create_dummy_model.py or place your .pkl in models/')
     else:
-        predictor = PredictorAgent(PICKLE_PATH, FEATURE_ORDER)
+        predictor = PredictionAgent(MODEL_PATH, FEATURE_ORDER)
         strategy_agent = StrategyAgent()
-        review = RetrieverAgent()
-        optimized_strategy = OptimizerAgent()
-        
-        orchestrator = Orchestrator(predictor, strategy_agent, review, optimized_strategy)
-        
-        
-        with st.spinner("Running all agents..."):
-            result = orchestrator.run_pipeline(raw)
+        # If you want RAG-based evaluation, ensure rag/chroma_db exists and pass docs_dir parameter to EvaluatorAgent
+        evaluator = EvaluatorAgent()
 
-        st.subheader("Prediction (Agent 1)")
-        st.json(result["prediction"])
-        
-        st.subheader("Initial Strategy (Agent 2)")
-        st.write(result)
-        
-        st.subheader("Review (Agent 3)")
-        st.code(result["review"])
+        optimizer = OptimizerAgent()
+        orchestrator = Orchestrator(predictor, strategy_agent, evaluator, optimizer)
 
-        st.subheader("Optimized Strategy (Agent 4)")
-        st.code(result["optimized_strategy"])
+        with st.spinner('Running pipeline...'):
+            out = orchestrator.run_pipeline(raw, docs_context)
+
+        st.subheader('Prediction (Agent 1)')
+        st.json(out['prediction'])
+
+        st.subheader('Initial Strategy (Agent 2)')
+        st.write(out['initial_strategy'])
+
+        st.subheader('Evaluations (Agent 3)')
+        for idx, eval_obj in enumerate(out.get('evaluations', [])):
+            st.markdown(f'**Iteration {idx+1}**')
+            if hasattr(eval_obj, 'json'):
+                st.json(json.loads(eval_obj.json()))
+            else:
+                st.write(eval_obj)
+
+        st.subheader('Final Strategy')
+        st.write(out['final_strategy'])

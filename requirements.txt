@@ -10,3 +10,5 @@ chromadb
 tqdm
 faiss-cpu  
 python-dotenv
+joblib
+pydantic
