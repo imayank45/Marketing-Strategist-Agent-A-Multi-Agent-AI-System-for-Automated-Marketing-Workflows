@@ -50,7 +50,7 @@ Prerequisites
 🐍 Python 3.9+
 
 📦 pip
-
+ 
 🔑 OpenAI API Key
 
 📁 Logistic Regression Model: lr_model_selected.pkl
